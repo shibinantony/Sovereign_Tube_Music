@@ -1,0 +1,86 @@
+name: Build Production Android APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    tags: [ "v*" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build, Optimize & Publish APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build Release & Debug APKs
+        run: gradle assembleRelease assembleDebug --stacktrace
+
+      - name: Rename Output APKs for Direct Download
+        run: |
+          mkdir -p dist
+          find app/build/outputs/apk/release -name "*.apk" -exec cp {} dist/JSAB-YouTube-Music-v1.0.0-release.apk \;
+          find app/build/outputs/apk/debug -name "*.apk" -exec cp {} dist/JSAB-YouTube-Music-v1.0.0-debug.apk \;
+
+      - name: Upload Release APK as Workflow Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JSAB-YouTube-Music-Release-APK
+          path: dist/*.apk
+          retention-days: 30
+
+      - name: Publish Direct Release Download
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        with:
+          tag_name: v1.0.0
+          name: "JSAB YouTube Music v1.0.0 (Sovereign Ad-Shielded High-Fidelity Audio Player)"
+          body: |
+            ### 🎵 JSAB YouTube Music v1.0.0
+            **Sovereign, High-Fidelity Ad-Shielded Audio Player for Android 16 & Samsung One UI 8.5**
+            *Engineered for Samsung Galaxy S24 FE (SM-S711B)*
+
+            ---
+
+            #### 🚀 Core Innovations & Features in v1.0.0:
+            - 🛡️ **Zero Ads, Zero Interruptions:** Pre-DOM YouTubei API network sanitizer strips `adPlacements`, `playerAds`, `adSlots`, and `adBreakHeartbeatParams` directly from media streams in memory.
+            - 🎶 **Maximum Audio Quality (Pure Audio Mode):** Strips video rasterization pipelines to reserve 100% CPU/GPU bandwidth for high-fidelity Opus (160 kbps) and AAC (256 kbps) audio streams without jitter.
+            - 📱 **True Screen-Off Background Playback:** Bypasses Chromium C++ `RenderWidgetHostView` suspension via `BackgroundWebView`, Android 14+ `FOREGROUND_SERVICE_MEDIA_PLAYBACK`, and Samsung Doze wake locks.
+            - 🔑 **Google Sign-In & Existing YouTube Account Sync:** Emulates genuine Samsung S24 FE Mobile Chrome (`SM-S711B`) user agent to cleanly bypass Google's 403 `disallowed_useragent` restriction. Access all your existing playlists, history, and library seamlessly with persistent `CookieSyncManager`.
+            - 🎚️ **Studio 5-Band Parametric Equalizer:** Hardware-accelerated WebAudio DSP with frequencies (60Hz, 230Hz, 910Hz, 3.6kHz, 14kHz), Bass Boost (0 to +15dB at 80Hz), Preamp Gain (0.5x to 2.0x), and curated presets.
+            - ⏱️ **Exponential Attenuation Sleep Timer:** Automated playback cutoff with smooth volume decay (15m, 30m, 45m, 60m, or end of current track).
+            - 📻 **Track Radio & Shuffle:** 1-tap quick action controls for infinite automated track radio discovery and shuffle toggles.
+            - 🖤 **Pure AMOLED Black (`#000000`):** Maximizes power efficiency and battery endurance on Samsung Dynamic AMOLED 2X displays.
+
+            ---
+
+            #### 📥 Download & Installation:
+            Download **`JSAB-YouTube-Music-v1.0.0-release.apk`** below, tap to install, and enjoy sovereign, ad-free streaming!
+          files: |
+            dist/JSAB-YouTube-Music-v1.0.0-release.apk
+            dist/JSAB-YouTube-Music-v1.0.0-debug.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
